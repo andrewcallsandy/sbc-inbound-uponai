@@ -125,6 +125,7 @@ const {
   wasOriginatedFromCarrier,
   getApplicationForDidAndCarrier,
   getOutboundGatewayForRefer,
+  getCarrierCredentials,
   getApplicationBySid
 } = require('./lib/db-utils')(srf, logger);
 srf.locals = {
@@ -133,6 +134,7 @@ srf.locals = {
   wasOriginatedFromCarrier,
   getApplicationForDidAndCarrier,
   getOutboundGatewayForRefer,
+  getCarrierCredentials,
   getFeatureServer: require('./lib/fs-tracking')(srf, logger),
   getApplicationBySid
 };
