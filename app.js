@@ -64,18 +64,30 @@ const {
   password: process.env.JAMBONES_MYSQL_PASSWORD,
   database: process.env.JAMBONES_MYSQL_DATABASE,
   connectionLimit: process.env.JAMBONES_MYSQL_CONNECTION_LIMIT || 10
-}, logger);
+}, logger, process.env.JAMBONES_MYSQL_WRITE_HOST && process.env.JAMBONES_MYSQL_WRITE_USER &&
+  process.env.JAMBONES_MYSQL_WRITE_PASSWORD && process.env.JAMBONES_MYSQL_WRITE_DATABASE ? {
+    host: process.env.JAMBONES_MYSQL_WRITE_HOST,
+    port: process.env.JAMBONES_MYSQL_WRITE_PORT || 3306,
+    user: process.env.JAMBONES_MYSQL_WRITE_USER,
+    password: process.env.JAMBONES_MYSQL_WRITE_PASSWORD,
+    database: process.env.JAMBONES_MYSQL_WRITE_DATABASE,
+    connectionLimit: process.env.JAMBONES_MYSQL_CONNECTION_LIMIT || 10
+  } : null);
 const {
   client: redisClient,
   addKey,
   deleteKey,
   retrieveKey,
+  retrieveHash,
   createSet,
   retrieveSet,
   addToSet,
   removeFromSet,
   incrKey,
-  decrKey} = require('@jambonz/realtimedb-helpers')({}, logger);
+  decrKey,
+  createEphemeralGateway,
+  queryEphemeralGateways
+} = require('@jambonz/realtimedb-helpers')({}, logger);
 
 const ngProtocol = process.env.JAMBONES_NG_PROTOCOL || 'udp';
 const ngPort = process.env.RTPENGINE_PORT || ('udp' === ngProtocol ? 22222 : 8080);
@@ -114,10 +126,13 @@ srf.locals = {...srf.locals,
     addKey,
     deleteKey,
     retrieveKey,
+    retrieveHash,
     createSet,
     incrKey,
     decrKey,
-    retrieveSet
+    retrieveSet,
+    createEphemeralGateway,
+    queryEphemeralGateways
   }
 };
 const {
@@ -125,7 +140,8 @@ const {
   wasOriginatedFromCarrier,
   getApplicationForDidAndCarrier,
   getOutboundGatewayForRefer,
-  getApplicationBySid
+  getApplicationBySid,
+  lookupAuthCarriersForAccountAndSP
 } = require('./lib/db-utils')(srf, logger);
 srf.locals = {
   ...srf.locals,
@@ -134,7 +150,8 @@ srf.locals = {
   getApplicationForDidAndCarrier,
   getOutboundGatewayForRefer,
   getFeatureServer: require('./lib/fs-tracking')(srf, logger),
-  getApplicationBySid
+  getApplicationBySid,
+  lookupAuthCarriersForAccountAndSP
 };
 const activeCallIds = srf.locals.activeCallIds;
 
@@ -143,7 +160,8 @@ const {
   handleSipRec,
   identifyAccount,
   checkLimits,
-  challengeDeviceCalls
+  challengeDeviceCalls,
+  identifyAuthTrunk
 } = require('./lib/middleware')(srf, logger);
 const CallSession = require('./lib/call-session');
 
@@ -231,7 +249,9 @@ srf.use('invite', [
   handleSipRec,
   identifyAccount,
   checkLimits,
-  challengeDeviceCalls
+  challengeDeviceCalls,
+  // challengeDeviceCalls will detect auth_trunk or device calls, identifyAuthTrunk have to be after that
+  identifyAuthTrunk
 ]);
 
 srf.invite((req, res) => {
